@@ -1,0 +1,116 @@
+\catcode`@=11\relax
+\catcode`_=11\relax
+
+\def\say{\immediate\write16}
+\def\@nul{\@nul}
+\def\@afterfi#1#2\fi{\fi#1}
+\let\@xp=\expandafter
+\def\gobble#1{}
+\def\gobbletilnul#1\@nul{}
+\def\nada{}
+\def\id#1{#1}
+\def\firstoftwo#1#2{#1}
+\def\secondoftwo#1#2{#2}
+\def\unpair#1#2#3#4{\def#1{#3}\def#2{#4}}
+\def\untri#1#2#3#4#5#6{\def#1{#4}\def#2{#5}\def#3{#6}}
+
+\def\prepeat#1#2{%
+    \@prepeat{#1}{#2}{0}%
+}
+
+\def\@prepeat#1#2#3{%
+    \ifnum#3=#2%
+    \else%
+        #1{#3}%
+        \@prepeat{#1}{#2}{\the\numexpr#3+1\relax}%
+    \fi%
+}
+
+%%
+% \map - maps a macro onto a stream of groups
+% #1 - primary macro
+% #2 - secondary macro
+% #3 - stream
+\def\map#1#2#3{\@map{#1}{#2}{0}#3\@nul}
+
+\def\@map#1#2#3#4{%
+    \ifx\@nul#4
+        #2{#3}%
+    \else%
+        #1{#3}{#4}%
+        \@afterfi{%
+            \expanded{%
+                \unexpanded{\@map{#1}{#2}}%
+                    {\the\numexpr#3+1\relax}%
+            }%
+        }%
+    \fi%
+}
+
+\def\createharray#1#2{%
+    \def\_createharray##1##2{%
+        \@xp\def\csname h@##1@#1\endcsname{##2}%
+    }%
+    \def\_createharraylen##1{%
+        \@xp\def\csname h@len@#1\endcsname{##1}%
+    }%
+    \map\_createharray\_createharraylen{#2}%
+}
+
+\newif\ifresult
+
+\def\isin#1#2{%
+    \def\_val{#1}%
+    \resultfalse%
+    \def\_isin##1{%
+        \@xp\ifx\csname h@##1@#2\endcsname\_val%
+            \resulttrue%
+        \fi%
+    }%
+    \expanded{\unexpanded{\prepeat\_isin}{\csname h@len@#2\endcsname}}%
+}
+        
+
+\def\createenums#1{%
+    \def\_createenums##1##2{%
+        \def##2{##2}%
+    }%
+    \map\_createenums\gobble{#1}%
+}
+
+\def\createstrenums#1#2{%
+    \def\_createstrenums##1##2{%
+        \edef\_name{\@xp\noexpand\csname #1##2\endcsname}%
+        \@xp\edef\_name{\@xp\noexpand\_name}%
+    }%
+    \map\_createstrenums\gobble{#2}%
+}
+
+\def\definemany#1#2{%
+    \def\__definemany##1##2{%
+        \@xp\def\csname #1##1\endcsname{##2}%
+    }%
+    \def\_definemany##1##2{%
+        \__definemany##2%
+    }%
+    \map\_definemany\gobble{#2}%
+}
+
+\createstrenums{n@}{1234567890}
+
+\def\_checkisnum#1{%
+    \ifx\@nul#1%
+        1%
+    \else%
+        \@afterfi{%
+        \unless\ifcsname n@#1\endcsname%
+            0%
+            \@xp\gobbletilnul%
+        \else%
+            \@xp\_checkisnum%
+        \fi%
+        }%
+    \fi%
+}
+        
+\def\isnum#1{\_checkisnum#1\@nul}

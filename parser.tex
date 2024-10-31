@@ -1,0 +1,191 @@
+\input lexer
+
+\createenums{\TPRINT\TNUM\TOP\TSTRING\TLPAREN\TRPAREN\TOPNUM\TRPARENNUM}
+
+\def\numop{\TNUM\TOP}
+\def\opnumopnum{\TOPNUM\TOPNUM}
+\def\opnumnum{\TOPNUM\TNUM}
+\def\numr{\TNUM\TRPAREN}
+\def\opnumrnum{\TOPNUM\TRPARENNUM}
+\def\lrnum{\TLPAREN\TRPARENNUM}
+\def\strnum{\TSTRING\TNUM}
+
+\definemany{priority@}{{+1}{-1}{*2}{/2}{(9999}{)0}}
+
+\def\initialpriority#1{%
+    \ifcsname priority@#1\endcsname%
+        \csname priority@#1\endcsname%
+    \else%
+        9999%
+    \fi%
+}
+
+\def\@initpriorities#1{%
+    \ifx\@nul#1%
+    \else%
+        \edef\initstring{\unexpanded\@xp{\initstring}{{\noexpand\TPRINT}{\initialpriority{#1}}{#1}}}%
+        \@xp\@initpriorities%
+    \fi%
+}
+
+\def\initpriorities#1{\def\initstring{}\@initpriorities#1\@nul}
+
+\def\initialbeta#1#2{%
+    \def\_pair{#1#2}%
+    \ifx\_pair\numop%
+        \def\_result{\TOPNUM}%
+        \let\_priority=\secondoftwo%
+        \def\_value##1##2{\def\result{{##1}{##2}}}%
+    \else\ifx\_pair\opnumopnum%
+        \def\_result{\TOPNUM}%
+        \let\_priority=\secondoftwo%
+        \def\_value##1##2{%
+            \unpair\_u\_f##1%
+            \unpair\_v\_g##2%
+            \expanded{\unexpanded{\def\result}{{\_f\_u\_v}{\@xp\noexpand\_g}}}%
+        }%
+    \else\ifx\_pair\opnumnum%
+        \def\_result{\TNUM}%
+        \let\_priority=\secondoftwo%
+        \def\_value##1##2{%
+            \unpair\_u\_f##1%
+            \edef\result{\_f\_u{##2}}%
+        }%
+    \else\ifx\_pair\numr%
+        \def\_result{\TRPARENNUM}%
+        \let\_priority=\secondoftwo%
+        \def\_value##1##2{%
+            \def\result{##1}%
+        }%
+    \else\ifx\_pair\opnumrnum%
+        \def\_result{\TRPARENNUM}%
+        \let\_priority=\secondoftwo%
+        \def\_value##1##2{%
+            \unpair\_u\_f##1%
+            \edef\result{\_f\_u{##2}}%
+        }%
+    \else\ifx\_pair\lrnum%
+        \def\_result{\TNUM}%
+        \let\_priority=\firstoftwo%
+        \def\_value##1##2{%
+            \def\result{##2}%
+        }%
+    \else\ifx\_pair\strnum%
+        \def\_result{\TNUM}%
+        \let\_priority=\firstoftwo%
+        \def\_value##1##2{%
+            \edef\result{\csname ##1\endcsname{##2}}%
+        }%
+    \else%
+        \let\_result=\@nul%
+    \fi\fi\fi\fi\fi\fi\fi%
+}
+
+\def\PLUS#1#2{\the\numexpr #1+#2\relax}
+\def\MINUS#1#2{\the\numexpr #1-#2\relax}
+\def\TIMES#1#2{\the\numexpr #1*#2\relax}
+\def\DIVIDE#1#2{\the\numexpr #1/#2\relax}
+
+\def\square#1{\the\numexpr (#1) * (#1)\relax}
+
+\definemany{op@}{{+\PLUS}{-\MINUS}{*\TIMES}{/\DIVIDE}}
+
+\def\state#1{%
+    \ifnum\isnum{#1}=1 %
+        \def\sTTYPE{\TNUM}%
+        \def\sVAL{#1}%
+    \else%
+        \if(#1%
+            \def\sTTYPE{\TLPAREN}%
+            \def\sVAL{}%
+        \else%
+            \if)#1%
+                \def\sTTYPE{\TRPAREN}%
+                \def\sVAL{}%
+            \else%
+                \ifcsname op@#1\endcsname%
+                    \def\sTTYPE{\TOP}%
+                    \@xp\let\@xp\sVAL\csname op@#1\endcsname%
+                \else%
+                    \def\sTTYPE{\TSTRING}%
+                    \def\sVAL{#1}%
+                \fi%
+            \fi%
+        \fi%
+    \fi%
+}
+
+\def\derivedbeta#1{%
+    \ifx\@nul#1%
+        \let\_next=\nada%
+    \else
+        \untri\_t\_n\_v#1%
+        \ifx\_t\TPRINT%
+            \@xp\state\@xp{\_v}%
+            \edef\_tri{\@xp\noexpand\sTTYPE{\_n}{\@xp\noexpand\sVAL}}%
+            \edef\dstring{\unexpanded\@xp{\dstring}\unexpanded\@xp{\@xp{\_tri}}}%
+            \def\_next{\@gettonul,}%
+        \else%
+            \let\_next=\@derivedbeta%
+        \fi%
+    \fi%
+    \_next%
+}
+
+\def\@gettonul#1\@nul{\@xp\@@gettonul\@xp{\gobble#1}}
+\def\@@gettonul#1{\@xp\def\@xp\dstring\@xp{\dstring#1}}
+
+\def\@derivedbeta#1{%
+    \ifx\@nul#1%
+        \edef\dstring{\unexpanded\@xp{\dstring}{{\@xp\noexpand\_t}{0}{\unexpanded\@xp{\_v}}}}%
+        \let\_next=\nada%
+    \else
+        \untri\_s\_m\_u#1%
+        \ifnum\_m>\_n %
+            \edef\dstring{\unexpanded\@xp{\dstring}{{\@xp\noexpand\_t}{\_n}{\unexpanded\@xp{\_v}}}}%
+            \def\_next{\derivedbeta{#1}}%
+        \else%
+            \@xp\@xp\@xp\initialbeta\@xp\_t\_s%
+            \ifx\@nul\_result%
+                \edef\dstring{\unexpanded\@xp{\dstring}{{\@xp\noexpand\_t}{\_n}{\unexpanded\@xp{\_v}}}}%
+                \def\_next{\derivedbeta{#1}}%
+            \else%
+                \expanded{\noexpand\_value{\unexpanded\@xp{\_v}}{\unexpanded\@xp{\_u}}}%
+                \edef\dstring{\unexpanded\@xp{\dstring}{{\@xp\noexpand\_result}{\_priority{\_n}{\_m}}{\unexpanded\@xp{\result}}}}%
+                \def\_next{\@gettonul,}%
+            \fi%
+        \fi%
+    \fi%
+    \_next%
+}
+
+\def\totalbeta#1{%
+    \def\dstring{}%
+    \def\lastdstring{}%
+    \derivedbeta#1\@nul%
+    \@totalbeta
+}
+
+\def\@totalbeta{%
+    \ifx\dstring\lastdstring%
+    \else%
+        \let\lastdstring=\dstring%
+        \def\dstring{}%
+        \@xp\derivedbeta\lastdstring\@nul%
+        \@totalbeta%
+    \fi%
+}
+
+\def\evaluate#1#2{%
+    \lexer{#2}%
+    \@xp\initpriorities\@xp{\lexedstring}%
+    \@xp\totalbeta\@xp{\initstring}%
+    \edef\_value{\@xp\@xp\@xp\gobble\@xp\id\dstring}
+    \edef#1{\@xp\secondoftwo\_value}%
+}
+
+\evaluate\X{12 * (12 - 1) + square(1 + 2)}
+\say{\meaning\X}
+
+\bye
+

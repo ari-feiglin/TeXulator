@@ -1,0 +1,98 @@
+\input utils
+
+\createenums{\WHITESPACE\NUM\STR\OP\LPAREN\RPAREN}
+\createharray{independent toktypes}{\LPAREN\RPAREN}
+
+\def\setttypes#1#2{%
+    \def\_setttypes##1##2{%
+        \createharray{ttypes@##2}{#2}%
+    }%
+    \map\_setttypes\gobble{#1}%
+}
+
+\setttypes{abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_}{\STR}
+\setttypes{0123456789}{\NUM\STR}
+\setttypes{+-*/}{\OP}
+\setttypes{(}{\LPAREN}
+\setttypes{)}{\RPAREN}
+
+\def\ifeq#1#2#3#4{%
+    \ifx#1#2%
+        #3%
+    \else%
+        #4%
+    \fi%
+}
+
+\newif\ifstop
+
+%%
+% \get_next_token - get next token from a stream of characters
+% #1 - current part of token
+% #2 - current token type
+% #3 - next character
+\def\_get_next_token#1#2#3{%
+    \ifx\@nul#3%
+        \def\_nexttok{#1}%
+        \def\_giveback{}%
+        \let\_next=\donext%
+        \stoptrue%
+    \else%
+        \def\_cttype{ttypes@#3}%
+        \@xp\ifx\@xp\csname h@0@\_cttype\endcsname\WHITESPACE%
+            \ifx\WHITESPACE#2%
+                \def\_next{\_get_next_token{}\WHITESPACE}%
+            \else%
+                \def\_nexttok{#1}%
+                \def\_giveback{#3}%
+                \let\_next=\donext%
+            \fi%
+        \else%
+            \@xp\@xp\@xp\isin\@xp\@xp\@xp{\csname h@0@\_cttype\endcsname}{independent toktypes}%
+            \ifresult%
+                \ifx\WHITESPACE#2%
+                    \def\_nexttok{#3}%
+                    \def\_giveback{}%
+                    \let\_next=\donext%
+                \else%
+                    \def\_nexttok{#1}%
+                    \def\_giveback{#3}%
+                    \let\_next=\donext%
+                \fi%
+            \else%
+                \isin{#2}{\_cttype}%
+                \ifx\WHITESPACE#2%
+                    \resulttrue%
+                \fi%
+                \ifresult%
+                    \@xp\def\@xp\_next\expanded{{\unexpanded{\_get_next_token{#1#3}}{\@xp\@xp\@xp\noexpand\csname h@0@\_cttype\endcsname}}}%
+                \else%
+                    \def\_nexttok{#1}%
+                    \def\_giveback{#3}%
+                    \let\_next=\donext%
+                \fi%
+            \fi%
+        \fi%
+    \fi%
+    \_next%
+}
+
+%%
+% \lexer - converts stream of characters into parseable stream
+% #1 - input stream
+\def\lexer#1{\def\lexedstring{}\stopfalse\@lexer#1\@nul}
+
+\def\@lexer{%
+    \unless\ifstop%
+        \let\donext=\@@lexer%
+        \@afterfi{\_get_next_token{}\WHITESPACE}%
+    \fi
+}
+
+\def\@@lexer{
+    \unless\ifx\_nexttok\nada%
+        \edef\lexedstring{\lexedstring{\_nexttok}}%
+    \fi%
+    \@xp\@lexer\_giveback%
+}
+
