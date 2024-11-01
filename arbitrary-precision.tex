@@ -1,0 +1,157 @@
+\input utils
+
+\newif\if_negative
+%%
+% Numbers are of the form {exp}{n0}{n2}...{nk}
+% and is equal to b^{exp}sum ni*b^i=sum nib^{i+exp}
+\def\tovar#1#2{\expanded{\unexpanded{\@tovar{#1}}#2}\@nul}
+\def\@tovar#1#2{%
+    \@xp\def\csname n@sign@#1\endcsname{#2}%
+    \ifnum#2=1 \_negativetrue\else\_negativefalse\fi%
+    \@@tovar{#1}%
+}
+\def\@@tovar#1#2{%
+    \@xp\def\csname n@exp@#1\endcsname{#2}%
+    \def\@@@tovar##1##2{%
+        \if_negative%
+            \@xp\def\csname n@##1@#1\endcsname{-##2}%
+        \else%
+            \@xp\def\csname n@##1@#1\endcsname{##2}%
+        \fi%
+    }%
+    \def\@@@@tovar##1{%
+        \@xp\def\csname n@len@#1\endcsname{##1}%
+    }%
+    \@map\@@@tovar\@@@@tovar{0}%
+}
+
+\tovar{ONE}{001}
+
+\def\fromvar#1#2{%
+    \def\@fromvar##1{{\csname n@##1@#2\endcsname}}%
+    \@xp\edef\csname #1\endcsname{{\csname n@sign@#2\endcsname}{\csname n@exp@#2\endcsname}\prepeat\@fromvar{\csname n@len@#2\endcsname}}%
+}
+
+\def\_abs#1{%
+    \the\numexpr\ifnum\numexpr#1\relax<0 -#1\else #1\fi\relax%
+}
+
+\def\_fromvartostr#1#2{%
+    \padleft{\BASELEN}{0}{\_abs{\csname n@\the\numexpr\csname n@len@#1\endcsname -#2-1\relax @#1\endcsname}}%
+}
+
+\def\fromvartostr#1{%
+    \ifnum\csname n@sign@#1\endcsname=1 -\fi%
+    \_abs{\csname n@\the\numexpr\csname n@len@#1\endcsname-1\relax @#1\endcsname}%
+    \prepeatfrom{\_fromvartostr{#1}}{\csname n@len@#1\endcsname}{1}%
+    \repeatit{\BASEZERO}{\csname n@exp@#1\endcsname}%
+}
+
+\def\letvar#1#2{%
+    \@xp\edef\csname n@len@#1\endcsname{\csname n@len@#2\endcsname}%
+    \@xp\edef\csname n@exp@#1\endcsname{\csname n@exp@#2\endcsname}%
+    \def\_letvar##1{%
+        \@xp\edef\csname n@##1@#1\endcsname{\csname n@##1@#2\endcsname}%
+    }%
+    \prepeat\_letvar{\csname n@len@#1\endcsname}%
+}
+
+\def\BASE{10}
+\def\BASEZERO{0}
+\def\BASELEN{1}
+
+\def\_exp#1{\csname n@exp@#1\endcsname}
+\def\_len#1{\csname n@len@#1\endcsname}
+
+\def\_max#1#2{\ifnum\numexpr#1\relax<\numexpr#2\relax \the\numexpr#2\relax\else\the\numexpr#1\relax\fi}
+\def\_min#1#2{\ifnum\numexpr#1\relax<\numexpr#2\relax \the\numexpr#1\relax\else\the\numexpr#2\relax\fi}
+
+\def\__renormalize#1{%
+    \@xp\edef\csname n@\the\numexpr #1+\n@exp@res\relax @res\endcsname{\the\numexpr\BASE-1-\csname n@#1@res\endcsname\relax}%
+}
+\def\___renormalize#1{%
+    \@xp\edef\csname n@#1@res\endcsname{\the\numexpr\BASE-1\relax}%
+}
+\def\_renormalize{%
+    \prepeat\__renormalize{\n@len@res}%
+    \prepeat\___renormalize{\n@exp@res}%
+    \edef\n@len@res{\the\numexpr\n@len@res+\n@exp@res\relax}%
+    \def\n@exp@res{0}%
+    \letvar{fst}{res}%
+    \letvar{snd}{ONE}%
+    \_plus%
+}
+
+\def\_normalizepm{%
+    \def\__normalizepm##1{%
+        \ifnum\csname n@##1@res\endcsname<0 %
+            \@xp\edef\csname n@##1@res\endcsname{\the\numexpr\csname n@##1@res\endcsname+\BASE\relax}%
+            \ifnum##1<\the\numexpr\n@len@res-1\relax%
+                \@xp\edef\csname n@\the\numexpr##1+1\relax @res\endcsname{\the\numexpr\csname n@\the\numexpr ##1+1\relax @res\endcsname -1\relax}%
+            \else%
+                \_negativetrue%
+            \fi%
+        \else\ifnum\csname n@##1@res\endcsname<\BASE %
+        \else%
+            \@xp\edef\csname n@##1@res\endcsname{\the\numexpr\csname n@##1@res\endcsname-\BASE\relax}%
+            \ifnum##1<\the\numexpr\n@len@res-1\relax%
+                \@xp\edef\csname n@\the\numexpr##1+1\relax @res\endcsname{\the\numexpr\csname n@\the\numexpr ##1+1\relax @res\endcsname +1\relax}%
+            \else%
+                \edef\n@len@res{\the\numexpr\n@len@res+1\relax}%
+                \@xp\edef\csname n@\the\numexpr##1+1\relax @res\endcsname{1}%
+            \fi%
+        \fi\fi%
+    }%
+    \_negativefalse%
+    \prepeat\__normalizepm{\n@len@res}%
+    \if_negative%
+        \_renormalize%
+        \def\n@sign@res{1}%
+    \else%
+        \def\n@sign@res{0}%
+    \fi%
+}
+
+\def\_plus{%
+    \edef\n@exp@res{\_min{\_exp{fst}}{\_exp{snd}}}%
+    \edef\_L{\_max{\_exp{fst}+\_len{fst}}{\_exp{snd}+\_len{snd}}}%
+    \edef\n@len@res{\the\numexpr\_L-\n@exp@res\relax}%
+    \def\__plus##1{%
+        \ifnum\numexpr ##1+\n@exp@res-\_exp{fst}\relax<0 %
+            \@xp\edef\csname n@##1@res\endcsname{\csname n@\the\numexpr ##1+\n@exp@res-\_exp{snd}\relax @snd\endcsname}%
+        \else%
+            \ifnum\numexpr ##1+\n@exp@res-\_exp{snd}\relax<0 %
+                \@xp\edef\csname n@##1@res\endcsname{\csname n@\the\numexpr ##1+\n@exp@res-\_exp{fst}\relax @fst\endcsname}%
+            \else%
+                \ifnum\numexpr ##1+\n@exp@res-\_exp{fst}\relax<\_len{fst} %
+                    \ifnum\numexpr ##1+\n@exp@res-\_exp{snd}\relax<\_len{snd} %
+                        \@xp\edef\csname n@##1@res\endcsname{%
+                            \the\numexpr%
+                                \csname n@\the\numexpr ##1+\n@exp@res-\_exp{fst}\relax @fst\endcsname%
+                                +%
+                                \csname n@\the\numexpr ##1+\n@exp@res-\_exp{snd}\relax @snd\endcsname%
+                            \relax%
+                        }%
+                    \else%
+                        \@xp\edef\csname n@##1@res\endcsname{\csname n@\the\numexpr ##1+\n@exp@res-\_exp{fst}\relax @fst\endcsname}%
+                    \fi%
+                \else%
+                    \@xp\edef\csname n@##1@res\endcsname{\csname n@\the\numexpr ##1+\n@exp@res-\_exp{snd}\relax @snd\endcsname}%
+                \fi%
+            \fi%
+        \fi%
+    }%
+    \prepeat\__plus{\n@len@res}%
+    \_normalizepm%
+}
+
+\tovar{fst}{{0}{0}{3}{1}}
+\tovar{snd}{{1}{0}{1}{3}}
+\say{\fromvartostr{fst} + \fromvartostr{snd}}
+\_plus
+\fromvar{new}{res}
+\say{\meaning\new, \@xp\meaning\csname n@0@res\endcsname}
+\say{\fromvartostr{res}}
+
+\bye
+
